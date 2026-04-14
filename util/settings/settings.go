@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -1094,6 +1095,14 @@ func (mgr *SettingsManager) appendResourceOverridesFromSplitKeys(cmData map[stri
 				return err
 			}
 			overrideVal.IgnoreDifferences = overrideIgnoreDiff
+		case "ignoreApplicationDifferences":
+			overrideIgnoreDiff := v1alpha1.OverrideIgnoreDiff{}
+			err := yaml.Unmarshal([]byte(v), &overrideIgnoreDiff)
+			if err != nil {
+				return err
+			}
+			slog.Info("ignoreApplicationDifferences", slog.Any("diff", overrideIgnoreDiff))
+			overrideVal.IgnoreApplicationDifferences = overrideIgnoreDiff
 		case "ignoreResourceUpdates":
 			overrideIgnoreUpdate := v1alpha1.OverrideIgnoreDiff{}
 			err := yaml.Unmarshal([]byte(v), &overrideIgnoreUpdate)

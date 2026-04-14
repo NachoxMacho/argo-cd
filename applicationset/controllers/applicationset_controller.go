@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"runtime/debug"
 	"slices"
@@ -114,6 +115,7 @@ type ApplicationSetReconciler struct {
 	SCMRootCAPath                string
 	GlobalPreservedAnnotations   []string
 	GlobalPreservedLabels        []string
+	SettingsMgr                  *settings.SettingsManager
 	Metrics                      *metrics.ApplicationsetMetrics
 	MaxResourcesStatusCount      int
 	ClusterInformer              *settings.ClusterInformer
@@ -694,12 +696,19 @@ func (r *ApplicationSetReconciler) SetupWithManager(mgr ctrl.Manager, enableProg
 // - For existing application, it will call update
 // The function also adds owner reference to all applications, and uses it to delete them.
 func (r *ApplicationSetReconciler) createOrUpdateInCluster(ctx context.Context, logCtx *log.Entry, applicationSet argov1alpha1.ApplicationSet, desiredApplications []argov1alpha1.Application) error {
+	resourceOverrides, err := r.SettingsMgr.GetResourceOverrides()
+	if err != nil {
+		return fmt.Errorf("error getting resource overrides: %w", err)
+	}
+	slog.Info("resourceOverrides", slog.Any("overrides", resourceOverrides))
 	// Build the diff config once per reconcile.
 	// Diff config is per applicationset, so generate it once for all applications
-	diffConfig, err := utils.BuildIgnoreDiffConfig(applicationSet.Spec.IgnoreApplicationDifferences, normalizers.IgnoreNormalizerOpts{})
+	diffConfig, err := utils.BuildIgnoreDiffConfig(applicationSet.Spec.IgnoreApplicationDifferences, resourceOverrides, normalizers.IgnoreNormalizerOpts{})
 	if err != nil {
 		return fmt.Errorf("failed to build ignore diff config: %w", err)
 	}
+
+	slog.Info("diffConfig", slog.Any("diffConfig", diffConfig))
 
 	g, ctx := errgroup.WithContext(ctx)
 	concurrency := r.concurrency()
