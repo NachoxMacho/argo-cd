@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"slices"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -51,12 +52,15 @@ var appEquality = conversion.EqualitiesOrDie(
 
 // BuildIgnoreDiffConfig constructs a DiffConfig from the ApplicationSet's ignoreDifferences rules.
 // Returns nil when ignoreDifferences is empty.
-func BuildIgnoreDiffConfig(ignoreDifferences argov1alpha1.ApplicationSetIgnoreDifferences, resourceOverrides map[string]argov1alpha1.ResourceOverride, ignoreNormalizerOpts normalizers.IgnoreNormalizerOpts) (argodiff.DiffConfig, error) {
-	if len(ignoreDifferences) == 0 {
+func BuildIgnoreDiffConfig(ignoreDifferences argov1alpha1.ApplicationSetIgnoreDifferences, globalOverrides []argov1alpha1.ResourceIgnoreDifferences, ignoreNormalizerOpts normalizers.IgnoreNormalizerOpts) (argodiff.DiffConfig, error) {
+	if len(ignoreDifferences) == 0 && len(globalOverrides) == 0 {
 		return nil, nil
 	}
+
+	combinedDiffs := slices.Concat(ignoreDifferences.ToApplicationIgnoreDifferences(), globalOverrides)
+
 	return argodiff.NewDiffConfigBuilder().
-		WithDiffSettings(ignoreDifferences.ToApplicationIgnoreDifferences(), resourceOverrides, false, ignoreNormalizerOpts).
+		WithDiffSettings(combinedDiffs, nil, false, ignoreNormalizerOpts).
 		WithNoCache().
 		Build()
 }

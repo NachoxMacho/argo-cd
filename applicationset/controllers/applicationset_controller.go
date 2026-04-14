@@ -700,10 +700,24 @@ func (r *ApplicationSetReconciler) createOrUpdateInCluster(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("error getting resource overrides: %w", err)
 	}
+	globalOverrides := make([]argov1alpha1.ResourceIgnoreDifferences, 0, len(resourceOverrides))
+	for name, override := range resourceOverrides {
+		if name != "argoproj.io/ApplicationSet" {
+			delete(resourceOverrides, name)
+			continue
+		}
+		globalOverrides = append(globalOverrides, argov1alpha1.ResourceIgnoreDifferences{
+			Kind:              argov1alpha1.ApplicationSchemaGroupVersionKind.Kind,
+			Group:             argov1alpha1.ApplicationSchemaGroupVersionKind.Group,
+			JSONPointers:      override.IgnoreApplicationDifferences.JSONPointers,
+			JQPathExpressions: override.IgnoreDifferences.JQPathExpressions,
+			ManagedFieldsManagers: override.IgnoreApplicationDifferences.ManagedFieldsManagers,
+		})
+	}
 	slog.Info("resourceOverrides", slog.Any("overrides", resourceOverrides))
 	// Build the diff config once per reconcile.
 	// Diff config is per applicationset, so generate it once for all applications
-	diffConfig, err := utils.BuildIgnoreDiffConfig(applicationSet.Spec.IgnoreApplicationDifferences, resourceOverrides, normalizers.IgnoreNormalizerOpts{})
+	diffConfig, err := utils.BuildIgnoreDiffConfig(applicationSet.Spec.IgnoreApplicationDifferences, globalOverrides, normalizers.IgnoreNormalizerOpts{})
 	if err != nil {
 		return fmt.Errorf("failed to build ignore diff config: %w", err)
 	}
